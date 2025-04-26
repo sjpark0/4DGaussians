@@ -24,7 +24,7 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0], load_coarse=False):
+    def __init__(self, args : ModelParams, gaussians : GaussianModel, focal=10.0, view_range=1.0,load_iteration=None, shuffle=True, resolution_scales=[1.0], load_coarse=False):
         """b
         :param path: Path to colmap scene main folder.
         """
@@ -61,6 +61,9 @@ class Scene:
         elif os.path.exists(os.path.join(args.source_path,"points3D_multipleview.ply")):
             scene_info = sceneLoadTypeCallbacks["MultipleView"](args.source_path)
             dataset_type="MultipleView"
+        elif os.path.exists(os.path.join(args.source_path,"points3D_scview.ply")):
+            scene_info = sceneLoadTypeCallbacks["SCView"](args.source_path, focal, view_range)
+            dataset_type="SCView"
         else:
             assert False, "Could not recognize scene type!"
         self.maxtime = scene_info.maxtime

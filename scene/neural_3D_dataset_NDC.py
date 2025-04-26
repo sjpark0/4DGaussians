@@ -93,6 +93,19 @@ def viewmatrix(z, up, pos):
     m[:3] = np.stack([-vec0, vec1, vec2, pos], 1)
     return m
 
+def render_path_axis_param(c2w, up, ax, rad, focal, view_range, N):
+    c2w = c2w[:3,:4]
+    render_poses = []
+    center = c2w[:,3]
+    #hwf = c2w[:,4:5]
+    v = c2w[:,ax] * rad
+    
+    for t in np.linspace(-view_range,view_range,N+1)[:-1]:
+        c = center + t * v
+        #z = normalize(c - (c - focal * c2w[:,2]))
+        z = normalize(c - (center - focal * c2w[:,2]))
+        render_poses.append(viewmatrix(z, up, c))
+    return render_poses
 
 def render_path_spiral(c2w, up, rads, focal, zdelta, zrate, N_rots=2, N=120):
     render_poses = []
@@ -204,6 +217,30 @@ def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
     render_poses = render_path_spiral(
         c2w, up, rads, focal, zdelta, zrate=0.5, N=N_views
     )
+    return np.stack(render_poses)
+
+def get_axis(c2ws_all, near_fars, axis, focal, view_range, N_views=120):
+    """
+    Generate a set of poses using NeRF's spiral camera trajectory as validation poses.
+    """
+    # center pose
+    c2w = average_poses(c2ws_all)
+
+    # Get average pose
+    up = normalize(c2ws_all[:, :3, 1].sum(0))
+
+    # Find a reasonable "focus depth" for this dataset
+    dt = 0.9
+    close_depth, inf_depth = near_fars.min() * 0.9, near_fars.max() * 5.0
+    focal = 1.0 / ((1.0 - dt) / close_depth + dt / inf_depth)
+
+    # Get radii for spiral path
+    shrink_factor = .8
+    zdelta = close_depth * .2
+    
+    tt = c2ws_all[:, :3, 3]
+    rads = np.percentile(np.abs(tt), 90, -1)
+    render_poses = render_path_axis_param(c2w, up, axis, shrink_factor*rads[1], focal, view_range, N=N_views)
     return np.stack(render_poses)
 
 

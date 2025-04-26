@@ -58,6 +58,7 @@ class ModelParams(ParamGroup):
         self.add_points=False
         self.extension=".png"
         self.llffhold=8
+        
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):

@@ -632,11 +632,52 @@ def readMultipleViewinfos(datadir,llffhold=8):
                            ply_path=ply_path)
     return scene_info
 
+def readSCViewinfos(datadir,focal, view_range, llffhold=8):
+
+    cameras_extrinsic_file = os.path.join(datadir, "sparse_/images.bin")
+    cameras_intrinsic_file = os.path.join(datadir, "sparse_/cameras.bin")
+    cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
+    cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
+    from scene.scview_dataset import scview_dataset
+    train_cam_infos = scview_dataset(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, cam_folder=datadir, focal=focal, view_range=view_range, split="train")
+    test_cam_infos = scview_dataset(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, cam_folder=datadir, focal=focal, view_range=view_range, split="test")
+
+    train_cam_infos_ = format_infos(train_cam_infos,"train")
+    nerf_normalization = getNerfppNorm(train_cam_infos_)
+
+    ply_path = os.path.join(datadir, "points3D_scview.ply")
+    bin_path = os.path.join(datadir, "points3D_scview.bin")
+    txt_path = os.path.join(datadir, "points3D_scview.txt")
+    if not os.path.exists(ply_path):
+        print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
+        try:
+            xyz, rgb, _ = read_points3D_binary(bin_path)
+        except:
+            xyz, rgb, _ = read_points3D_text(txt_path)
+        storePly(ply_path, xyz, rgb)
+    
+    try:
+        pcd = fetchPly(ply_path)
+        
+    except:
+        pcd = None
+    
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           video_cameras=test_cam_infos.video_cam_infos,
+                           maxtime=0,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    return scene_info
+
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo,
     "dynerf" : readdynerfInfo,
     "nerfies": readHyperDataInfos,  # NeRFies & HyperNeRF dataset proposed by [https://github.com/google/hypernerf/releases/tag/v0.1]
     "PanopticSports" : readPanopticSportsinfos,
-    "MultipleView": readMultipleViewinfos
+    "MultipleView": readMultipleViewinfos,
+    "SCView": readSCViewinfos
+
 }

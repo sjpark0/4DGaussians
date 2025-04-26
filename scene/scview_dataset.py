@@ -9,12 +9,14 @@ from scene.neural_3D_dataset_NDC import get_spiral, get_axis
 from torchvision import transforms as T
 
 
-class multipleview_dataset(Dataset):
+class scview_dataset(Dataset):
     def __init__(
         self,
         cam_extrinsics,
         cam_intrinsics,
         cam_folder,
+        focal,
+        view_range,
         split
     ):
         self.focal = [cam_intrinsics[1].params[0], cam_intrinsics[1].params[0]]
@@ -25,7 +27,10 @@ class multipleview_dataset(Dataset):
         self.transform = T.ToTensor()
         self.image_paths, self.image_poses, self.image_times= self.load_images_path(cam_folder, cam_extrinsics,cam_intrinsics,split)
         if split=="test":
-            self.video_cam_infos=self.get_video_cam_infos(cam_folder)                    
+            print(focal, view_range)
+            self.video_cam_infos=self.get_video_cam_infos_x_axis(cam_folder, focal, view_range)
+            
+        
     
     def load_images_path(self, cam_folder, cam_extrinsics,cam_intrinsics,split):
         image_length = len(os.listdir(os.path.join(cam_folder,"cam01")))
@@ -85,6 +90,38 @@ class multipleview_dataset(Dataset):
                                 time = time, mask=None))
         return cameras
     
+    def get_video_cam_infos_x_axis(self,datadir, focal, view_range):
+        poses_arr = np.load(os.path.join(datadir, "poses_bounds_multipleview.npy"))
+        poses = poses_arr[:, :-2].reshape([-1, 3, 5])  # (N_cams, 3, 5)
+        near_fars = poses_arr[:, -2:]
+        poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
+        N_views = 49
+        #focal = 100
+        #view_range = 1.0
+        val_poses = get_axis(poses, near_fars, 0, focal, view_range, N_views=N_views)
+
+        cameras = []
+        len_poses = len(val_poses)
+        times = [i/len_poses for i in range(len_poses)]
+        image = Image.open(self.image_paths[0])
+        image = self.transform(image)
+
+        for idx, p in enumerate(val_poses):
+            image_path = None
+            image_name = f"{idx}"
+            time = times[idx]
+            pose = np.eye(4)
+            pose[:3,:] = p[:3,:]
+            R = pose[:3,:3]
+            R = - R
+            R[:,0] = -R[:,0]
+            T = -pose[:3,3].dot(R)
+            FovX = self.FovX
+            FovY = self.FovY
+            cameras.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                                image_path=image_path, image_name=image_name, width=image.shape[2], height=image.shape[1],
+                                time = time, mask=None))
+        return cameras
     
     def __len__(self):
         return len(self.image_paths)
