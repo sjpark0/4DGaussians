@@ -232,7 +232,7 @@ def get_axis(c2ws_all, near_fars, axis, focal, view_range, N_views=120):
     # Find a reasonable "focus depth" for this dataset
     dt = 0.9
     close_depth, inf_depth = near_fars.min() * 0.9, near_fars.max() * 5.0
-    focal = 1.0 / ((1.0 - dt) / close_depth + dt / inf_depth)
+    #focal = 1.0 / ((1.0 - dt) / close_depth + dt / inf_depth)
 
     # Get radii for spiral path
     shrink_factor = .8
@@ -240,6 +240,7 @@ def get_axis(c2ws_all, near_fars, axis, focal, view_range, N_views=120):
     
     tt = c2ws_all[:, :3, 3]
     rads = np.percentile(np.abs(tt), 90, -1)
+    print("get_axis", focal, view_range)
     render_poses = render_path_axis_param(c2w, up, axis, shrink_factor*rads[1], focal, view_range, N=N_views)
     return np.stack(render_poses)
 

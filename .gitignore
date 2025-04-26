@@ -11,4 +11,3 @@ submodules/
 *.dll
 *.exe
 colmap_tmp
-submodules

@@ -27,7 +27,7 @@ class scview_dataset(Dataset):
         self.transform = T.ToTensor()
         self.image_paths, self.image_poses, self.image_times= self.load_images_path(cam_folder, cam_extrinsics,cam_intrinsics,split)
         if split=="test":
-            print(focal, view_range)
+            print("test", focal, view_range)
             self.video_cam_infos=self.get_video_cam_infos_x_axis(cam_folder, focal, view_range)
             
         
@@ -91,7 +91,7 @@ class scview_dataset(Dataset):
         return cameras
     
     def get_video_cam_infos_x_axis(self,datadir, focal, view_range):
-        poses_arr = np.load(os.path.join(datadir, "poses_bounds_multipleview.npy"))
+        poses_arr = np.load(os.path.join(datadir, "poses_bounds_scview.npy"))
         poses = poses_arr[:, :-2].reshape([-1, 3, 5])  # (N_cams, 3, 5)
         near_fars = poses_arr[:, -2:]
         poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
