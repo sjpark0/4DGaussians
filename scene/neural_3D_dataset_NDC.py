@@ -101,7 +101,7 @@ def render_path_axis_param(c2w, up, ax, rad, focal, view_range, N):
     v = c2w[:,ax] * rad
     
     for t in np.linspace(-view_range,view_range,N+1)[:-1]:
-        c = center + t * v
+        c = center - t * v
         #z = normalize(c - (c - focal * c2w[:,2]))
         z = normalize(c - (center - focal * c2w[:,2]))
         render_poses.append(viewmatrix(z, up, c))
@@ -241,7 +241,7 @@ def get_axis(c2ws_all, near_fars, axis, focal, view_range, N_views=120):
     tt = c2ws_all[:, :3, 3]
     rads = np.percentile(np.abs(tt), 90, -1)
     print("get_axis", focal, view_range)
-    render_poses = render_path_axis_param(c2w, up, axis, shrink_factor*rads[1], focal, view_range, N=N_views)
+    render_poses = render_path_axis_param(c2w, up, axis, shrink_factor*rads[axis], focal, view_range, N=N_views)
     return np.stack(render_poses)
 
 

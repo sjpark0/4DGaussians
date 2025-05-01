@@ -30,6 +30,8 @@ from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
 from utils.general_utils import PILtoTorch
 from tqdm import tqdm
+from scene.neural_3D_dataset_NDC import get_axis
+
 class CameraInfo(NamedTuple):
     uid: int
     R: np.array
@@ -92,7 +94,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
         uid = intr.id
         R = np.transpose(qvec2rotmat(extr.qvec))
         T = np.array(extr.tvec)
-
+        
         if intr.model in ["SIMPLE_PINHOLE", "SIMPLE_RADIAL"]:
             focal_length_x = intr.params[0]
             FovY = focal2fov(focal_length_x, height)
@@ -120,6 +122,75 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos
+
+def readColmapCamerasTest(cam_extrinsics, cam_intrinsics, datadir, images_folder, focal, view_range):
+    for idx, key in enumerate(cam_extrinsics):
+        sys.stdout.write('\r')
+        # the exact output you're looking for:
+        sys.stdout.write("Reading camera {}/{}".format(idx+1, len(cam_extrinsics)))
+        sys.stdout.flush()
+
+        extr = cam_extrinsics[key]
+        intr = cam_intrinsics[extr.camera_id]
+        height = intr.height
+        width = intr.width
+
+        uid = intr.id
+        #R = np.transpose(qvec2rotmat(extr.qvec))
+        #T = np.array(extr.tvec)
+
+        if intr.model in ["SIMPLE_PINHOLE", "SIMPLE_RADIAL"]:
+            focal_length_x = intr.params[0]
+            FovY = focal2fov(focal_length_x, height)
+            FovX = focal2fov(focal_length_x, width)
+        elif intr.model=="PINHOLE":
+            focal_length_x = intr.params[0]
+            focal_length_y = intr.params[1]
+            FovY = focal2fov(focal_length_y, height)
+            FovX = focal2fov(focal_length_x, width)
+        elif intr.model == "OPENCV":
+            focal_length_x = intr.params[0]
+            focal_length_y = intr.params[1]
+            FovY = focal2fov(focal_length_y, height)
+            FovX = focal2fov(focal_length_x, width)
+        else:
+            assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE or SIMPLE_PINHOLE cameras) supported!"
+
+        image_path = os.path.join(images_folder, os.path.basename(extr.name))
+        image_name = os.path.basename(image_path).split(".")[0]
+        image = Image.open(image_path)
+        image = PILtoTorch(image,None)
+        break
+
+    poses_arr = np.load(os.path.join(datadir, "poses_bounds.npy"))
+    poses = poses_arr[:, :-2].reshape([-1, 3, 5])  # (N_cams, 3, 5)
+    near_fars = poses_arr[:, -2:]
+    poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
+    #print(poses)
+    N_views = 49
+    #focal = 100
+    #view_range = 1.0
+    val_poses = get_axis(poses, near_fars, 0, focal, view_range, N_views=N_views)
+    cameras = []
+    len_poses = len(val_poses)
+    times = [i/len_poses for i in range(len_poses)]
+    
+    for idx, p in enumerate(val_poses):
+        image_path = None
+        image_name = f"{idx}"
+        time = times[idx]
+        pose = np.eye(4)
+        pose[:3,:] = p[:3,:]
+        R = pose[:3,:3]     
+        R = - R
+        #T = -pose[:3,3].dot(R)
+        T = pose[:3,3].dot(R) 
+        #FovX = self.FovX
+        #FovY = self.FovY
+        cameras.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
+                            image_path=image_path, image_name=image_name, width=image.shape[2], height=image.shape[1],
+                            time = time, mask=None))
+    return cameras
 
 def fetchPly(path):
     plydata = PlyData.read(path)
@@ -197,6 +268,59 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
                            nerf_normalization=nerf_normalization,
                            ply_path=ply_path)
     return scene_info
+
+def readColmapSceneInfo1(path, images, eval, focal, view_range, llffhold=8):
+    try:
+        cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
+        cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
+        cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
+    except:
+        cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.txt")
+        cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.txt")
+        cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
+        cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
+
+    reading_dir = "images" if images == None else images
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir))
+    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
+    # breakpoint()
+    if eval:
+        train_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold != 0]
+        test_cam_infos = [c for idx, c in enumerate(cam_infos) if idx % llffhold == 0]
+    else:
+        train_cam_infos = cam_infos
+        test_cam_infos = []
+
+    video_cam_infos = readColmapCamerasTest(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, datadir=path, images_folder=os.path.join(path, reading_dir), focal=focal, view_range=view_range)
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+
+    ply_path = os.path.join(path, "sparse/0/points3D.ply")
+    bin_path = os.path.join(path, "sparse/0/points3D.bin")
+    txt_path = os.path.join(path, "sparse/0/points3D.txt")
+    if not os.path.exists(ply_path):
+        print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
+        try:
+            xyz, rgb, _ = read_points3D_binary(bin_path)
+        except:
+            xyz, rgb, _ = read_points3D_text(txt_path)
+        storePly(ply_path, xyz, rgb)
+    
+    try:
+        pcd = fetchPly(ply_path)
+        
+    except:
+        pcd = None
+    
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           video_cameras=video_cam_infos,
+                           maxtime=0,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    return scene_info
+
 def generateCamerasFromTransforms(path, template_transformsfile, extension, maxtime):
     trans_t = lambda t : torch.Tensor([
     [1,0,0,0],
@@ -672,7 +796,7 @@ def readSCViewinfos(datadir,focal, view_range, llffhold=8):
     return scene_info
 
 sceneLoadTypeCallbacks = {
-    "Colmap": readColmapSceneInfo,
+    "Colmap": readColmapSceneInfo1,
     "Blender" : readNerfSyntheticInfo,
     "dynerf" : readdynerfInfo,
     "nerfies": readHyperDataInfos,  # NeRFies & HyperNeRF dataset proposed by [https://github.com/google/hypernerf/releases/tag/v0.1]
