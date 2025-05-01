@@ -605,6 +605,49 @@ def readdynerfInfo(datadir,use_bg_points,eval):
                            )
     return scene_info
 
+def readscviewInfo(datadir,use_bg_points,eval, focal, view_range):
+    # loading all the data follow hexplane format
+    # ply_path = os.path.join(datadir, "points3D_dense.ply")
+    ply_path = os.path.join(datadir, "points3D_downsample2.ply")
+    from scene.scview_dataset1 import SCView_Dataset
+    train_dataset = SCView_Dataset(
+    datadir,
+    "train",
+    1.0,
+    time_scale=1,
+    scene_bbox_min=[-2.5, -2.0, -1.0],
+    scene_bbox_max=[2.5, 2.0, 1.0],
+    eval_index=0,
+        )    
+    test_dataset = SCView_Dataset(
+    datadir,
+    "test",
+    1.0,
+    time_scale=1,
+    scene_bbox_min=[-2.5, -2.0, -1.0],
+    scene_bbox_max=[2.5, 2.0, 1.0],
+    eval_index=0,
+        )
+    train_cam_infos = format_infos(train_dataset,"train")
+    val_cam_infos = format_render_poses(test_dataset.val_poses,test_dataset)
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+
+    # xyz = np.load
+    pcd = fetchPly(ply_path)
+    print("origin points,",pcd.points.shape[0])
+    
+    print("after points,",pcd.points.shape[0])
+
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_dataset,
+                           test_cameras=test_dataset,
+                           video_cameras=val_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path,
+                           maxtime=300
+                           )
+    return scene_info
+
 def setup_camera(w, h, k, w2c, near=0.01, far=100):
     from diff_gaussian_rasterization import GaussianRasterizationSettings as Camera
     fx, fy, cx, cy = k[0][0], k[1][1], k[0][2], k[1][2]
@@ -756,7 +799,7 @@ def readMultipleViewinfos(datadir,llffhold=8):
                            ply_path=ply_path)
     return scene_info
 
-def readSCViewinfos(datadir,focal, view_range, llffhold=8):
+def readSCViewinfos1(datadir,focal, view_range, llffhold=8):
 
     cameras_extrinsic_file = os.path.join(datadir, "sparse_/images.bin")
     cameras_intrinsic_file = os.path.join(datadir, "sparse_/cameras.bin")
@@ -802,6 +845,6 @@ sceneLoadTypeCallbacks = {
     "nerfies": readHyperDataInfos,  # NeRFies & HyperNeRF dataset proposed by [https://github.com/google/hypernerf/releases/tag/v0.1]
     "PanopticSports" : readPanopticSportsinfos,
     "MultipleView": readMultipleViewinfos,
-    "SCView": readSCViewinfos
+    "SCView": readscviewInfo
 
 }
