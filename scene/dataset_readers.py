@@ -845,6 +845,7 @@ sceneLoadTypeCallbacks = {
     "nerfies": readHyperDataInfos,  # NeRFies & HyperNeRF dataset proposed by [https://github.com/google/hypernerf/releases/tag/v0.1]
     "PanopticSports" : readPanopticSportsinfos,
     "MultipleView": readMultipleViewinfos,
-    "SCView": readscviewInfo
+    "SCView": readscviewInfo,
+    "SCView1": readSCViewinfos1
 
 }

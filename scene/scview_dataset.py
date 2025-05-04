@@ -19,6 +19,7 @@ class scview_dataset(Dataset):
         view_range,
         split
     ):
+        print("Loading SCView dataset")
         self.focal = [cam_intrinsics[1].params[0], cam_intrinsics[1].params[0]]
         height=cam_intrinsics[1].height
         width=cam_intrinsics[1].width
@@ -32,9 +33,8 @@ class scview_dataset(Dataset):
         
     
     def load_images_path(self, cam_folder, cam_extrinsics,cam_intrinsics,split):
-        #image_length = len(os.listdir(os.path.join(cam_folder,"cam01")))
+        image_length = len(os.listdir(os.path.join(cam_folder,"cam01")))
         #len_cam=len(cam_extrinsics)
-        image_folder = os.path.join(cam_folder,"images")
         image_paths=[]
         image_poses=[]
         image_times=[]
@@ -42,11 +42,20 @@ class scview_dataset(Dataset):
             extr = cam_extrinsics[key]
             R = np.transpose(qvec2rotmat(extr.qvec))
             T = np.array(extr.tvec)
+            number = os.path.basename(extr.name)[5:-4]
+            images_folder=os.path.join(cam_folder,"cam"+number.zfill(2))
+            image_range=range(image_length)
+            if split=="test":
+                image_range = [image_range[0],image_range[int(image_length/3)],image_range[int(image_length*2/3)]]
 
-            image_path=os.path.join(image_folder,str(idx).zfill(3)+".png")
-            image_paths.append(image_path)
-            image_poses.append((R,T))
-            image_times.append(0.0)            
+            for i in image_range:    
+                num=i+1
+                image_path=os.path.join(images_folder,"frame_"+str(num).zfill(5)+".png")
+                
+                image_paths.append(image_path)
+                image_poses.append((R,T))
+                image_times.append(float(i/image_length))
+
         return image_paths, image_poses,image_times
     
     def get_video_cam_infos(self,datadir):

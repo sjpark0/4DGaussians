@@ -63,6 +63,9 @@ class Scene:
         elif os.path.exists(os.path.join(args.source_path,"poses_bounds1.npy")):
             scene_info = sceneLoadTypeCallbacks["SCView"](args.source_path, args.white_background, args.eval, focal, view_range)
             dataset_type="SCView"
+        elif os.path.exists(os.path.join(args.source_path,"points3D_scview.ply")):
+            scene_info = sceneLoadTypeCallbacks["SCView1"](args.source_path, focal, view_range)
+            dataset_type="SCView1"
         else:
             assert False, "Could not recognize scene type!"
         self.maxtime = scene_info.maxtime
