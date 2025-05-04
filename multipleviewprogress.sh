@@ -14,9 +14,7 @@ colmap stereo_fusion --workspace_path ./colmap_tmp/dense --workspace_format COLM
 
 python scripts/downsample_point.py ./colmap_tmp/dense/fused.ply ./data/multipleview/$workdir/points3D_multipleview.ply
 
-git clone https://github.com/Fyusion/LLFF.git
-pip install scikit-image
-python LLFF/imgs2poses.py ./colmap_tmp/
+python imgs2poses.py ./colmap_tmp/
 
 cp ./colmap_tmp/poses_bounds.npy ./data/multipleview/$workdir/poses_bounds_multipleview.npy
 
