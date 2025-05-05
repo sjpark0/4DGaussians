@@ -35,22 +35,29 @@ def average_poses(poses):
         pose_avg: (3, 4) the average pose
     """
     # 1. Compute the center
-    center = poses[..., 3].mean(0)  # (3)
-
+    #center = poses[..., 3].mean(0)  # (3)
+    
     # 2. Compute the z axis
-    z = normalize(poses[..., 2].mean(0))  # (3)
-
+    #z = normalize(poses[..., 2].mean(0))  # (3)
     # 3. Compute axis y' (no need to normalize as it's not the final output)
-    y_ = poses[..., 1].mean(0)  # (3)
-
+    #y_ = poses[..., 1].mean(0)  # (3)
     # 4. Compute the x axis
-    x = normalize(np.cross(z, y_))  # (3)
-
+    #x = normalize(np.cross(z, y_))  # (3)
+    #x = normalize(np.cross(y_, z))  # (3)
+    
     # 5. Compute the y axis (as z and x are normalized, y is already of norm 1)
-    y = np.cross(x, z)  # (3)
-
+    #y = np.cross(x, z)  # (3)
+    #y = np.cross(z, x)
+    #pose_avg = np.stack([x, y, z, center], 1)  # (3, 4)
+    
+    center = poses[..., 3].mean(0)  # (3)
+    z = normalize(poses[..., 2].mean(0))  # (3)
+    y_ = poses[..., 0].sum(0)  # (3)
+    y = normalize(np.cross(z, y_))
+    x = normalize(np.cross(y, z))  # (3)
+    
     pose_avg = np.stack([x, y, z, center], 1)  # (3, 4)
-
+    
     return pose_avg
 
 
@@ -86,11 +93,10 @@ def center_poses(poses, blender2opencv):
 
 def viewmatrix(z, up, pos):
     vec2 = normalize(z)
-    vec1_avg = up
-    vec0 = normalize(np.cross(vec1_avg, vec2))
-    vec1 = normalize(np.cross(vec2, vec0))
-    m = np.eye(4)
-    m[:3] = np.stack([-vec0, vec1, vec2, pos], 1)
+    vec0_avg = up
+    vec1 = normalize(np.cross(vec2, vec0_avg))
+    vec0 = normalize(np.cross(vec1, vec2))
+    m = np.stack([vec0, vec1, vec2, pos], 1)
     return m
 
 def render_path_axis_param(c2w, up, ax, rad, focal, view_range, N):
@@ -99,9 +105,8 @@ def render_path_axis_param(c2w, up, ax, rad, focal, view_range, N):
     center = c2w[:,3]
     #hwf = c2w[:,4:5]
     v = c2w[:,ax] * rad
-    
     for t in np.linspace(-view_range,view_range,N+1)[:-1]:
-        c = center - t * v
+        c = center + t * v
         #z = normalize(c - (c - focal * c2w[:,2]))
         z = normalize(c - (center - focal * c2w[:,2]))
         render_poses.append(viewmatrix(z, up, c))
@@ -219,26 +224,27 @@ def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
     )
     return np.stack(render_poses)
 
+def ptstocam(pts, c2w):
+    tt = np.matmul(c2w[:3,:3].T, (pts.T-c2w[:3,3])[...,np.newaxis])[...,0]
+    return tt
+
 def get_axis(c2ws_all, near_fars, axis, focal, view_range, N_views=120):
     """
     Generate a set of poses using NeRF's spiral camera trajectory as validation poses.
     """
     # center pose
     c2w = average_poses(c2ws_all)
-
     # Get average pose
-    up = normalize(c2ws_all[:, :3, 1].sum(0))
+    up = normalize(c2ws_all[:, :3, 0].sum(0))
 
     # Find a reasonable "focus depth" for this dataset
     dt = 0.9
     close_depth, inf_depth = near_fars.min() * 0.9, near_fars.max() * 5.0
     #focal = 1.0 / ((1.0 - dt) / close_depth + dt / inf_depth)
-
     # Get radii for spiral path
     shrink_factor = .8
     zdelta = close_depth * .2
-    
-    tt = c2ws_all[:, :3, 3]
+    tt = ptstocam(c2ws_all[:, :3,3].T, c2w).T
     rads = np.percentile(np.abs(tt), 90, -1)
     print("get_axis", focal, view_range)
     render_poses = render_path_axis_param(c2w, up, axis, shrink_factor*rads[axis], focal, view_range, N=N_views)

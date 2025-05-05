@@ -93,24 +93,29 @@ class scview_dataset(Dataset):
         poses_arr = np.load(os.path.join(datadir, "poses_bounds_scview.npy"))
         poses = poses_arr[:, :-2].reshape([-1, 3, 5])  # (N_cams, 3, 5)
         near_fars = poses_arr[:, -2:]
-        poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
+        #poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
+        
         N_views = 49
         #focal = 100
         #view_range = 1.0
-        val_poses = get_axis(poses, near_fars, 0, focal, view_range, N_views=N_views)
-
+        val_poses = get_axis(poses, near_fars, 1, focal, view_range, N_views=N_views)
+        val_poses = np.concatenate([val_poses[...,1:2], 
+                                  -val_poses[...,0:1], 
+                                   val_poses[...,2:]], -1)
         cameras = []
         len_poses = len(val_poses)
         times = [i/len_poses for i in range(len_poses)]
         image = Image.open(self.image_paths[0])
         image = self.transform(image)
         for idx, p in enumerate(val_poses):
+            print(idx, p)
             image_path = None
             image_name = f"{idx}"
             time = times[idx]
             pose = np.eye(4)
             pose[:3,:] = p[:3,:]
             R = pose[:3,:3]
+            
             R = - R
             R[:,0] = -R[:,0]
             T = -pose[:3,3].dot(R)
