@@ -1,0 +1,1 @@
+python train.py -s data/scview/EBS1 --port 6017 --expname "scview/EBS" --configs arguments/scview/Sample.py --save_iterations 40000 80000 120000 160000 200000  --checkpoint_iterations 40000 80000 120000 160000 200000

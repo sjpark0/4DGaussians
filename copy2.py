@@ -1,15 +1,18 @@
 import os
+import cv2
+workdir = "data/EBS"
+workdir1 = "data/EBS1"
 
-workdir = "PlenopticServer1/Diff/uniform/EBS_01_Subway_S2T1_out"
-workdir1 = "data/EBS"
 
-os.makedirs(workdir1, exist_ok=True)
+for i in range(16):
+    os.makedirs(os.path.join(workdir1, "cam{0:02d}".format(i)))
+    for j in range(100):
+        filename1 = os.path.join(workdir, "cam{0:02d}".format(i), "imaeg", "{0:04d}.png".format(j))
+        filename2 = os.path.join(workdir1, "cam{0:02d}".format(i), "frame_{0:05d}.jpg")
+        
+        img = cv2.imread(filename1)
 
-folder_list = os.listdir(workdir)
-#folder_list = sorted(folder_list)
-folder_list = [int(folder) for folder in folder_list if not folder.startswith("Param")]
-folder_list.sort()
-i = 0
+
 for folder in folder_list:
     path = os.path.join(workdir, str(folder), "images")
     file_list = os.listdir(path)

@@ -27,8 +27,15 @@ class scview_dataset(Dataset):
         self.FovX = focal2fov(self.focal[0], width)
         self.transform = T.ToTensor()
         self.image_paths, self.image_poses, self.image_times= self.load_images_path(cam_folder, cam_extrinsics,cam_intrinsics,split)
+        self.video_cam_infos = []
         if split=="test":
-            self.video_cam_infos=self.get_video_cam_infos_x_axis(cam_folder, focal, view_range)
+            frame_idx = 1
+            image_length = len(os.listdir(os.path.join(cam_folder,"cam01")))
+            time = float(frame_idx / image_length)            
+            print(time)
+            for frame_idx in range(image_length):
+                time = float(frame_idx / image_length)
+                self.video_cam_infos.append(self.get_video_cam_infos_x_axis(cam_folder, focal, view_range, time))
             
         
     
@@ -50,7 +57,7 @@ class scview_dataset(Dataset):
 
             for i in image_range:    
                 num=i+1
-                image_path=os.path.join(images_folder,"frame_"+str(num).zfill(5)+".png")
+                image_path=os.path.join(images_folder,"frame_"+str(num).zfill(5)+".jpg")
                 
                 image_paths.append(image_path)
                 image_poses.append((R,T))
@@ -73,6 +80,7 @@ class scview_dataset(Dataset):
         image = self.transform(image)
 
         for idx, p in enumerate(val_poses):
+            
             image_path = None
             image_name = f"{idx}"
             time = times[idx]
@@ -89,7 +97,7 @@ class scview_dataset(Dataset):
                                 time = time, mask=None))
         return cameras
     
-    def get_video_cam_infos_x_axis(self,datadir, focal, view_range):
+    def get_video_cam_infos_x_axis(self,datadir, focal, view_range, time):
         poses_arr = np.load(os.path.join(datadir, "poses_bounds_scview.npy"))
         poses = poses_arr[:, :-2].reshape([-1, 3, 5])  # (N_cams, 3, 5)
         near_fars = poses_arr[:, -2:]
@@ -108,10 +116,9 @@ class scview_dataset(Dataset):
         image = Image.open(self.image_paths[0])
         image = self.transform(image)
         for idx, p in enumerate(val_poses):
-            print(idx, p)
             image_path = None
             image_name = f"{idx}"
-            time = times[idx]
+            #time = times[idx]
             pose = np.eye(4)
             pose[:3,:] = p[:3,:]
             R = pose[:3,:3]
