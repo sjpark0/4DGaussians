@@ -12,3 +12,4 @@ submodules/
 *.exe
 colmap_tmp
 PlenopticServer1
+docker/lib
