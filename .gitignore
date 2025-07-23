@@ -13,3 +13,4 @@ submodules/
 colmap_tmp
 PlenopticServer1
 docker/lib
+colmap_tmp/

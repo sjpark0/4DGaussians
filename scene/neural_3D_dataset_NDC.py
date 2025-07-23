@@ -233,7 +233,10 @@ def get_axis(c2ws_all, near_fars, axis, focal, view_range, N_views=120):
     Generate a set of poses using NeRF's spiral camera trajectory as validation poses.
     """
     # center pose
-    c2w = average_poses(c2ws_all)
+    #c2w = average_poses(c2ws_all)
+    arr = c2ws_all[:,0,3]
+    id = np.argpartition(arr, len(arr) // 2)[len(arr) // 2]
+    c2w = c2ws_all[id,:,:]
     # Get average pose
     up = normalize(c2ws_all[:, :3, 0].sum(0))
 
