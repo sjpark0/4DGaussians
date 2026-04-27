@@ -56,6 +56,7 @@ class ModelParams(ParamGroup):
         self.eval = True
         self.render_process=False
         self.add_points=False
+        self.init_gaussian_ply = ""
         self.extension=".png"
         self.llffhold=8
         
@@ -64,6 +65,8 @@ class ModelParams(ParamGroup):
     def extract(self, args):
         g = super().extract(args)
         g.source_path = os.path.abspath(g.source_path)
+        if getattr(g, "init_gaussian_ply", ""):
+            g.init_gaussian_ply = os.path.abspath(g.init_gaussian_ply)
         return g
 
 class PipelineParams(ParamGroup):

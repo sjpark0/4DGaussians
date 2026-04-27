@@ -162,6 +162,38 @@ class GaussianModel:
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
         self._deformation_table = torch.gt(torch.ones((self.get_xyz.shape[0]),device="cuda"),0)
+
+    def create_from_previous_ply(self, ply_path: str, spatial_lr_scale: float, time_line: int):
+        if not os.path.exists(ply_path):
+            raise FileNotFoundError(f"Previous Gaussian PLY not found: {ply_path}")
+        self.spatial_lr_scale = spatial_lr_scale
+        self.load_ply(ply_path)
+        self._deformation = self._deformation.to("cuda")
+        self._zero_deformation_output_heads()
+
+        print("Number of points loaded from previous Gaussian PLY : ", self.get_xyz.shape[0])
+
+        self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+        self._deformation_table = torch.gt(torch.ones((self.get_xyz.shape[0]), device="cuda"), 0)
+
+    def _zero_deformation_output_heads(self):
+        # Make the newly initialized deformation network start as identity.
+        output_heads = [
+            self._deformation.deformation_net.pos_deform,
+            self._deformation.deformation_net.scales_deform,
+            self._deformation.deformation_net.rotations_deform,
+            self._deformation.deformation_net.opacity_deform,
+            self._deformation.deformation_net.shs_deform,
+        ]
+
+        for head in output_heads:
+            for module in reversed(head):
+                if isinstance(module, nn.Linear):
+                    nn.init.zeros_(module.weight)
+                    if module.bias is not None:
+                        nn.init.zeros_(module.bias)
+                    break
+
     def training_setup(self, training_args):
         self.percent_dense = training_args.percent_dense
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")

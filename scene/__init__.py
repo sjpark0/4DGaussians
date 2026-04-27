@@ -101,6 +101,8 @@ class Scene:
                                                     "point_cloud",
                                                     "iteration_" + str(self.loaded_iter),
                                                    ))
+        elif getattr(args, "init_gaussian_ply", ""):
+            self.gaussians.create_from_previous_ply(args.init_gaussian_ply, self.cameras_extent, self.maxtime)
         else:
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent, self.maxtime)
 

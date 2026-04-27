@@ -57,7 +57,7 @@ class scview_dataset(Dataset):
 
             for i in image_range:    
                 num=i+1
-                image_path=os.path.join(images_folder,"frame_"+str(num).zfill(5)+".jpg")
+                image_path=os.path.join(images_folder,"frame_"+str(num).zfill(5)+".png")
                 
                 image_paths.append(image_path)
                 image_poses.append((R,T))
