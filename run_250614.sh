@@ -1,33 +1,8 @@
-PREFIX=samul_still
-sh colmap_sparse.sh data/250614_iPhone/$PREFIX/IMG_1401
-
-SET1=$(seq 1403 1 1427)
-for i in $SET1
-do
-    sh colmap_sparse.sh data/250614_iPhone/$PREFIX/IMG_$i
-done
-
-PREFIX=sogo_still
-SET1=$(seq 1430 1 1450)
-for i in $SET1
-do
-    sh colmap_sparse.sh data/250614_iPhone/$PREFIX/IMG_$i
-done
-
 PREFIX=gayagum_still
-SET1=$(seq 1468 1 1480)
-for i in $SET1
-do
-    sh colmap_sparse.sh data/250614_iPhone/$PREFIX/IMG_$i
-done
-SET1=$(seq 5383 1 5387)
-for i in $SET1
-do
-    sh colmap_sparse.sh data/250614_iPhone/$PREFIX/IMG_$i
-done
+SRC=../PlenopticServer1/250614_iPhone/$PREFIX
+TEMP=data/$PREFIX
 
-#PREFIX=uniform/EBS_01_Subway_S2T1_out
-#SRC=../PlenopticServer1/Diff/$PREFIX
+
 #DST1=../PlenopticServer2/2023-EBS/GRID49_GS_960_540_1000/$PREFIX
 #DST2=../PlenopticServer2/2023-EBS/GRID49_GS_960_540_3000/$PREFIX
 #DST3=../PlenopticServer2/2023-EBS/GRID49_GS_960_540_14000/$PREFIX
@@ -41,12 +16,27 @@ done
 #cp -r $SRC/Param/* $TEMP
 
 
-#SET1=$(seq 714 1 1571)
-#for i in $SET1
-#do
-    #cp $SRC/$i/images/*.png $TEMP/images
-    #mogrify -resize 25% -format png $TEMP/images/*.png
-    #python train.py -s $TEMP --port 6017 --expname "scview/$PREFIX/$i" --configs arguments/hypernerf/default.py --save_iterations 1000 3000 14000
+SET1=$(seq 5383 1 5383)
+SET2=$(seq 5.0 2.0 20.0)
+SET3=$(seq 0.4 0.2 1.0)
+
+mkdir -p $TEMP    
+for i in $SET1
+do
+    mkdir -p $SRC/IMG_$i/Export
+    cp -r $SRC/IMG_$i/ $TEMP
+
+    mogrify -resize 50% -format png $TEMP/IMG_$i/images/*.png
+    python train.py -s $TEMP/IMG_$i --port 6017 --expname "scview/$PREFIX/IMG_$i" --configs arguments/hypernerf/default.py
+    for j in $SET2
+    do
+        for k in $SET3
+        do
+            python render.py --model_path "output/scview/$PREFIX/IMG_$i" --skip_train --focal $j --view_range $k
+            grid_generation/grid_generation output/scview/$PREFIX/IMG_$i/video/ours_14000/renders 540 960 $SRC/IMG_$i/Export/$j-$k
+        done
+    done    
+done
     #python render.py --model_path "output/scview/$PREFIX/$i" --skip_train --focal 80.0 --iteration 1000
     #python render.py --model_path "output/scview/$PREFIX/$i" --skip_train --focal 80.0 --iteration 3000
     #python render.py --model_path "output/scview/$PREFIX/$i" --skip_train --focal 80.0 --iteration 14000
