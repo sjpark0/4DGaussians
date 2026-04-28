@@ -117,20 +117,21 @@ class OptimizationParams(ParamGroup):
         self.custom_sampler=None
         self.iterations = 30_000
         self.coarse_iterations = 3000
-        self.position_lr_init = 0.00016
+        self.position_lr_init = 0.00008
         self.position_lr_final = 0.0000016
         self.position_lr_delay_mult = 0.01
         self.position_lr_max_steps = 20_000
-        self.deformation_lr_init = 0.00016
+        self.deformation_lr_init = 0.00008
         self.deformation_lr_final = 0.000016
         self.deformation_lr_delay_mult = 0.01
-        self.grid_lr_init = 0.0016
+        self.grid_lr_init = 0.0008
         self.grid_lr_final = 0.00016
 
         self.feature_lr = 0.0025
-        self.opacity_lr = 0.05
-        self.scaling_lr = 0.005
-        self.rotation_lr = 0.001
+        self.opacity_lr = 0.025
+        self.scaling_lr = 0.0025
+        self.rotation_lr = 0.0005
+        self.grad_clip_norm = 1.0
         self.percent_dense = 0.01
         self.lambda_dssim = 0
         self.lambda_lpips = 0

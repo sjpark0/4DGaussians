@@ -249,7 +249,7 @@ def get_axis(c2ws_all, near_fars, axis, focal, view_range, N_views=120):
     zdelta = close_depth * .2
     tt = ptstocam(c2ws_all[:, :3,3].T, c2w).T
     rads = np.percentile(np.abs(tt), 90, -1)
-    print("get_axis", focal, view_range)
+    #print("get_axis", focal, view_range)
     render_poses = render_path_axis_param(c2w, up, axis, shrink_factor*rads[axis], focal, view_range, N=N_views)
     return np.stack(render_poses)
 

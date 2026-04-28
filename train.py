@@ -33,6 +33,26 @@ import copy
 
 to8b = lambda x : (255*np.clip(x.cpu().numpy(),0,1)).astype(np.uint8)
 
+def _first_nonfinite_component(components):
+    for name, value in components:
+        if isinstance(value, torch.Tensor) and not torch.isfinite(value.detach()).all():
+            return name
+    return None
+
+def _optimizer_has_nonfinite_grad(optimizer):
+    for group in optimizer.param_groups:
+        group_name = group.get("name", "unnamed")
+        for param in group["params"]:
+            if param.grad is not None and not torch.isfinite(param.grad).all():
+                return group_name
+    return None
+
+def _optimizer_parameters(optimizer):
+    for group in optimizer.param_groups:
+        for param in group["params"]:
+            if param.grad is not None:
+                yield param
+
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -208,18 +228,40 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         if stage == "fine" and hyper.time_smoothness_weight != 0:
             # tv_loss = 0
             tv_loss = gaussians.compute_regulation(hyper.time_smoothness_weight, hyper.l1_time_planes, hyper.plane_tv_weight)
-            loss += tv_loss
+            loss = loss + tv_loss
         if opt.lambda_dssim != 0:
             ssim_loss = ssim(image_tensor,gt_image_tensor)
-            loss += opt.lambda_dssim * (1.0-ssim_loss)
+            loss = loss + opt.lambda_dssim * (1.0-ssim_loss)
         # if opt.lambda_lpips !=0:
         #     lpipsloss = lpips_loss(image_tensor,gt_image_tensor,lpips_model)
-        #     loss += opt.lambda_lpips * lpipsloss
-        
+        #     loss = loss + opt.lambda_lpips * lpipsloss
+
+        nonfinite_component = _first_nonfinite_component([
+            ("render", image_tensor),
+            ("gt_image", gt_image_tensor),
+            ("l1_loss", Ll1),
+            ("total_loss", loss),
+        ])
+        if nonfinite_component is not None:
+            print(f"[ITER {iteration}] {stage}: {nonfinite_component} is NaN/Inf, skipping optimizer step.")
+            gaussians.optimizer.zero_grad(set_to_none=True)
+            continue
+
         loss.backward()
-        if torch.isnan(loss).any():
-            print("loss is nan,end training, reexecv program now.")
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+        nonfinite_grad_group = _optimizer_has_nonfinite_grad(gaussians.optimizer)
+        if nonfinite_grad_group is not None:
+            print(f"[ITER {iteration}] {stage}: gradient in {nonfinite_grad_group} is NaN/Inf, skipping optimizer step.")
+            gaussians.optimizer.zero_grad(set_to_none=True)
+            continue
+
+        if opt.grad_clip_norm > 0:
+            torch.nn.utils.clip_grad_norm_(_optimizer_parameters(gaussians.optimizer), opt.grad_clip_norm)
+            nonfinite_grad_group = _optimizer_has_nonfinite_grad(gaussians.optimizer)
+            if nonfinite_grad_group is not None:
+                print(f"[ITER {iteration}] {stage}: gradient in {nonfinite_grad_group} became NaN/Inf after clipping, skipping optimizer step.")
+                gaussians.optimizer.zero_grad(set_to_none=True)
+                continue
+
         viewspace_point_tensor_grad = torch.zeros_like(viewspace_point_tensor)
         for idx in range(0, len(viewspace_point_tensor_list)):
             viewspace_point_tensor_grad = viewspace_point_tensor_grad + viewspace_point_tensor_list[idx].grad

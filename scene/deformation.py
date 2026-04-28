@@ -198,6 +198,16 @@ class deform_network(nn.Module):
     def forward_dynamic(self, point, scales=None, rotations=None, opacity=None, shs=None, times_sel=None):
         # times_emb = poc_fre(times_sel, self.time_poc)
         point_emb = poc_fre(point,self.pos_poc)
+        #print("Debug!!!!!")
+        #print(self.pos_poc)
+        #print(point)        
+        #print(point.unsqueeze(-1) * self.pos_poc)
+        #print((point.unsqueeze(-1) * self.pos_poc).flatten(-2))
+        
+        #print(point.shape, (point.unsqueeze(-1) * self.pos_poc).flatten(-2).shape, point_emb.shape, self.pos_poc.shape)
+        
+        #print("here")
+        #print(point_emb)
         scales_emb = poc_fre(scales,self.rotation_scaling_poc)
         rotations_emb = poc_fre(rotations,self.rotation_scaling_poc)
         # time_emb = poc_fre(times_sel, self.time_poc)

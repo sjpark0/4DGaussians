@@ -97,11 +97,23 @@ gaussians, scene = render_sets(model.extract(args), hyperparam.extract(args), ar
 output_path = os.path.join(args.model_path,"gaussian_pertimestamp")
 os.makedirs(output_path,exist_ok=True)
 print("Computing Gaussians.")
+'''
 for index, viewpoint in enumerate(scene.getTestCameras()):
-    
+     
     points, scales_final, rotations_final, opacity_final, shs_final = get_state_at_time(gaussians, viewpoint)
     feature_dc_shape = gaussians._features_dc.shape[1]
     feature_rest_shape = gaussians._features_rest.shape[1]
     gs_ply = init_3DGaussians_ply(points, scales_final, rotations_final, opacity_final, shs_final, [feature_dc_shape, feature_rest_shape])
     gs_ply.write(os.path.join(output_path,"time_{0:05d}.ply".format(index)))
 print("done")
+'''
+
+#sjpark수정
+     
+points, scales_final, rotations_final, opacity_final, shs_final = get_state_at_time(gaussians, scene.getVideoCameras()[-1][0])
+feature_dc_shape = gaussians._features_dc.shape[1]
+feature_rest_shape = gaussians._features_rest.shape[1]
+gs_ply = init_3DGaussians_ply(points, scales_final, rotations_final, opacity_final, shs_final, [feature_dc_shape, feature_rest_shape])
+gs_ply.write(os.path.join(output_path,"last.ply"))
+print("done")
+
