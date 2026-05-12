@@ -39,13 +39,21 @@ def _first_nonfinite_component(components):
             return name
     return None
 
-def _optimizer_has_nonfinite_grad(optimizer):
+def _sanitize_optimizer_grads(optimizer):
+    sanitized_groups = []
     for group in optimizer.param_groups:
         group_name = group.get("name", "unnamed")
+        sanitized_count = 0
         for param in group["params"]:
-            if param.grad is not None and not torch.isfinite(param.grad).all():
-                return group_name
-    return None
+            if param.grad is None:
+                continue
+            nonfinite_mask = ~torch.isfinite(param.grad)
+            if nonfinite_mask.any():
+                sanitized_count += nonfinite_mask.sum().item()
+                param.grad = torch.nan_to_num(param.grad, nan=0.0, posinf=0.0, neginf=0.0)
+        if sanitized_count > 0:
+            sanitized_groups.append((group_name, sanitized_count))
+    return sanitized_groups
 
 def _optimizer_parameters(optimizer):
     for group in optimizer.param_groups:
@@ -248,19 +256,15 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             continue
 
         loss.backward()
-        nonfinite_grad_group = _optimizer_has_nonfinite_grad(gaussians.optimizer)
-        if nonfinite_grad_group is not None:
-            print(f"[ITER {iteration}] {stage}: gradient in {nonfinite_grad_group} is NaN/Inf, skipping optimizer step.")
-            gaussians.optimizer.zero_grad(set_to_none=True)
-            continue
+        sanitized_grad_groups = _sanitize_optimizer_grads(gaussians.optimizer)
+        for group_name, sanitized_count in sanitized_grad_groups:
+            print(f"[ITER {iteration}] {stage}: gradient in {group_name} had {sanitized_count} NaN/Inf values; zeroed them and continuing.")
 
         if opt.grad_clip_norm > 0:
             torch.nn.utils.clip_grad_norm_(_optimizer_parameters(gaussians.optimizer), opt.grad_clip_norm)
-            nonfinite_grad_group = _optimizer_has_nonfinite_grad(gaussians.optimizer)
-            if nonfinite_grad_group is not None:
-                print(f"[ITER {iteration}] {stage}: gradient in {nonfinite_grad_group} became NaN/Inf after clipping, skipping optimizer step.")
-                gaussians.optimizer.zero_grad(set_to_none=True)
-                continue
+            sanitized_grad_groups = _sanitize_optimizer_grads(gaussians.optimizer)
+            for group_name, sanitized_count in sanitized_grad_groups:
+                print(f"[ITER {iteration}] {stage}: gradient in {group_name} had {sanitized_count} NaN/Inf values after clipping; zeroed them and continuing.")
 
         viewspace_point_tensor_grad = torch.zeros_like(viewspace_point_tensor)
         for idx in range(0, len(viewspace_point_tensor_list)):

@@ -532,7 +532,7 @@ class GaussianModel:
         torch.cuda.empty_cache()
     def densify(self, max_grad, min_opacity, extent, max_screen_size, density_threshold, displacement_scale, model_path=None, iteration=None, stage=None):
         grads = self.xyz_gradient_accum / self.denom
-        grads[grads.isnan()] = 0.0
+        grads = torch.nan_to_num(grads, nan=0.0, posinf=0.0, neginf=0.0)
 
         self.densify_and_clone(grads, max_grad, extent, density_threshold, displacement_scale, model_path, iteration, stage)
         self.densify_and_split(grads, max_grad, extent)
@@ -551,7 +551,8 @@ class GaussianModel:
 
 
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
-        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor[update_filter,:2], dim=-1, keepdim=True)
+        viewspace_grads = torch.nan_to_num(viewspace_point_tensor[update_filter,:2], nan=0.0, posinf=0.0, neginf=0.0)
+        self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_grads, dim=-1, keepdim=True)
         self.denom[update_filter] += 1
     @torch.no_grad()
     def update_deformation_table(self,threshold):
