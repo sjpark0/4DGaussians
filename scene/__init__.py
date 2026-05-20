@@ -15,6 +15,7 @@ import json
 from utils.system_utils import searchForMaxIteration
 from scene.dataset_readers import sceneLoadTypeCallbacks
 from scene.gaussian_model import GaussianModel
+from scene.gaussian_model_deformation_learning_only import GaussianModelDeformationOnly
 from scene.dataset import FourDGSdataset
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
@@ -92,6 +93,9 @@ class Scene:
             # breakpoint()
             scene_info = scene_info._replace(point_cloud=add_points(scene_info.point_cloud, xyz_max=xyz_max, xyz_min=xyz_min))
         self.gaussians._deformation.deformation_net.set_aabb(xyz_max,xyz_min)
+
+        last_ply_path = os.path.join(args.source_path, "last.ply")
+
         if self.loaded_iter:
             self.gaussians.load_ply(os.path.join(self.model_path,
                                                            "point_cloud",
@@ -102,9 +106,13 @@ class Scene:
                                                     "iteration_" + str(self.loaded_iter),
                                                    ))
         #elif getattr(args, "init_gaussian_ply", ""):\
-        elif os.path.exists(os.path.join(args.source_path,"last.ply")):
+        elif os.path.exists(last_ply_path):
             print("create_from_previous_ply")
             self.gaussians.create_from_previous_ply(os.path.join(args.source_path,"last.ply"), self.cameras_extent, self.maxtime)
+        elif isinstance(self.gaussians, GaussianModelDeformationOnly):
+            raise FileNotFoundError(
+                f"--deformation_only requires previous Gaussian PLY, but not found: {last_ply_path}"
+            )
         else:
             self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent, self.maxtime)
 
